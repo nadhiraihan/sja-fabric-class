@@ -5,7 +5,7 @@ Briefing (sumber/briefing-video-12nov-transkrip.txt): slide 3 & 30 pertanyaan sa
 slide 4 alur Benang > Tenunan > Kain > Baju lalu "Pembahasan", slide 15 kotak kanan dikeluarin,
 slide 31 & 32 satu-satu dari atas, slide 33 kiri dulu lalu poin kanan satu-satu. Slide lain langsung.
 Posisi dari teks PDF materi (koordinat 0..1). Garis + titik timeline dibiarin kelihatan, teksnya yang muncul.
-Bikin: slides/NNb.webp (gambar dasar, bagian yang dianimasi dikosongin pakai warna latar) + steps.json.
+Bikin: slides/NNb.webp (gambar dasar, bagian yang dianimasi dikosongin pakai warna latar) + steps.json + steps.js (dibaca index.html).
 Jalankan: python3 build_steps.py   (habis build_slides.py kalau PDF berubah)
 """
 import json
@@ -20,8 +20,9 @@ P = 0.006   # padding
 STEPS = {
     3: [[(0.062, 0.453, 0.316, 0.483)], [(0.263, 0.525, 0.353, 0.555)], [(0.330, 0.609, 0.462, 0.640)],
         [(0.439, 0.701, 0.533, 0.732)], [(0.478, 0.830, 0.924, 0.898)]],
-    4: [[(0.290, 0.226, 0.485, 0.318)], [(0.290, 0.432, 0.495, 0.524)], [(0.290, 0.638, 0.443, 0.732)],
-        [(0.290, 0.846, 0.489, 0.940)], [(0.625, 0.528, 0.958, 0.910)]],
+    # slide 4: dari BAWAH ke atas (Nadhir 12 Nov: "urutannya dari bawah ke atas"), Pembahasan paling akhir
+    4: [[(0.290, 0.846, 0.489, 0.940)], [(0.290, 0.638, 0.443, 0.732)], [(0.290, 0.432, 0.495, 0.524)],
+        [(0.290, 0.226, 0.485, 0.318)], [(0.625, 0.528, 0.958, 0.910)]],
     15: [[(0.576, 0.172, 0.950, 0.966)]],
     30: [[(0.062, 0.453, 0.316, 0.483)], [(0.263, 0.525, 0.353, 0.555)], [(0.330, 0.609, 0.462, 0.640)],
          [(0.439, 0.701, 0.533, 0.732)], [(0.475, 0.830, 0.927, 0.898)]],
@@ -64,6 +65,7 @@ def main():
         base.save(D / "slides" / f"{n:02d}b.webp", "WEBP", quality=82, method=5)
         out[n] = js
     (D / "steps.json").write_text(json.dumps(out))
+    (D / "steps.js").write_text("// dibikin build_steps.py: {nomor slide: [langkah: [[x,y,w,h], ...]]}\nwindow.STEPS = " + json.dumps(out) + ";\n")
     print({k: len(v) for k, v in out.items()})
 
 
