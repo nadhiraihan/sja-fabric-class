@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Fabric Class">
+<meta name="robots" content="noindex,nofollow">
+<link rel="apple-touch-icon" href="icon.png">
+<title>Fabric Class · SJA Textile</title>
+<!--
+  Materi Fabric Class buat present dari iPad + coret pakai Apple Pencil · 12 Nov 2026.
+  Slide = gambar dari PDF Canva (slides/01..34.webp, dibikin build_slides.py).
+  Pensil = nulis · jari = geser slide (kecuali mode "Jari nulis" nyala) · mouse = nulis (buat tes di laptop).
+  Coretan disimpan per slide di localStorage (key fc-ink-v1), koordinat 0..1 jadi aman kalau ukuran layar ganti.
+  Slide nempel di atas, toolbar di pita bawah DI LUAR slide, jadi di OBS tinggal crop ke area slide 16:9.
+-->
+<style>
+:root{--navy:#1a4876;--navy8:#0b1d32;--mocha:#3a2d25;--m3:#9b8270;--cream:#f5f1ee;--tb:58px}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--navy8);overflow:hidden;font-family:-apple-system,"Inter","Helvetica Neue",sans-serif;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+#stage{position:absolute;left:0;top:0;background:#f5f4f1;touch-action:none;overflow:hidden}
+#stage img{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
+#stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#board{position:absolute;inset:0;background:#fff;display:none;
+  background-image:radial-gradient(#d6dbe2 1.3px,transparent 1.4px);background-size:28px 28px}
+body.isboard #board{display:block}
+#tb{position:absolute;left:0;right:0;bottom:0;height:var(--tb);display:flex;align-items:center;gap:6px;padding:0 12px;
+  padding-bottom:env(safe-area-inset-bottom);color:#e9eef4;transition:opacity .25s}
+body.hidetb #tb{opacity:.0;pointer-events:none}
+#tb .g{display:flex;align-items:center;gap:4px;padding:4px;border-radius:999px;background:rgba(255,255,255,.07)}
+#tb button{height:40px;min-width:40px;padding:0 10px;border:0;border-radius:999px;background:transparent;color:#e9eef4;
+  font:600 14px -apple-system,"Inter",sans-serif;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer}
+#tb button.on{background:#f5f1ee;color:var(--navy8)}
+#tb button:active{transform:scale(.94)}
+#tb .dot{width:20px;height:20px;border-radius:50%;border:2px solid rgba(255,255,255,.65)}
+#tb button.on .dot{border-color:var(--navy8)}
+#tb .sp{flex:1}
+#cnt{font:600 15px -apple-system,"Inter",sans-serif;min-width:70px;text-align:center;color:#e9eef4;letter-spacing:.02em}
+#tb svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+#tb button.warn{background:#c0392b;color:#fff}
+#logo{font:700 12px -apple-system,"Inter",sans-serif;letter-spacing:.28em;color:#c8d4e2;opacity:.7;padding:0 6px}
+#toast{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);background:rgba(11,29,50,.92);color:#fff;
+  padding:16px 22px;border-radius:16px;font:500 16px/1.5 -apple-system,"Inter",sans-serif;text-align:center;
+  pointer-events:none;opacity:0;transition:opacity .4s;z-index:20}
+#toast.show{opacity:1}
+#grid{position:absolute;inset:0;background:rgba(11,29,50,.96);display:none;overflow:auto;padding:24px;z-index:30;
+  grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px;align-content:start}
+body.showgrid #grid{display:grid}
+#grid div{position:relative;border-radius:8px;overflow:hidden;outline:2px solid transparent;cursor:pointer}
+#grid div.cur{outline-color:#f5f1ee}
+#grid img{width:100%;display:block;aspect-ratio:16/9;object-fit:cover}
+#grid span{position:absolute;left:6px;top:6px;background:rgba(0,0,0,.55);color:#fff;font:600 12px -apple-system,sans-serif;
+  padding:2px 7px;border-radius:999px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <img id="slide" alt="">
+  <div id="board"></div>
+  <canvas id="ink"></canvas>
+  <canvas id="laser"></canvas>
+</div>
+
+<div id="tb">
+  <div class="g">
+    <button id="bPrev" title="Slide sebelumnya (←)"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
+    <span id="cnt">1 / 34</span>
+    <button id="bNext" title="Slide berikutnya (→)"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
+    <button id="bGrid" title="Semua slide"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></button>
+  </div>
+  <div class="g" id="tools">
+    <button data-tool="pen" data-color="#1a4876" class="on" title="Pen navy (P)"><span class="dot" style="background:#1a4876"></span></button>
+    <button data-tool="pen" data-color="#d0342c" title="Pen merah"><span class="dot" style="background:#d0342c"></span></button>
+    <button data-tool="pen" data-color="#111111" title="Pen hitam"><span class="dot" style="background:#111"></span></button>
+    <button data-tool="hl" data-color="#ffd84d" title="Highlighter (H)"><span class="dot" style="background:#ffd84d;opacity:.8;border-radius:5px"></span></button>
+    <button data-tool="eraser" title="Penghapus, sentuh coretan (E)"><svg viewBox="0 0 24 24"><path d="M7 19h12M5.5 14.5l8-8a2 2 0 0 1 2.8 0l2.2 2.2a2 2 0 0 1 0 2.8L12 18H8.5z"/></svg></button>
+    <button data-tool="laser" title="Laser pointer (L)"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2" fill="#ff3b30" stroke="none"/><circle cx="12" cy="12" r="7" stroke-opacity=".5"/></svg></button>
+  </div>
+  <div class="g">
+    <button id="bUndo" title="Batalin coretan terakhir (Z)"><svg viewBox="0 0 24 24"><path d="M9 7L4 12l5 5"/><path d="M4 12h10a6 6 0 0 1 0 12"/></svg></button>
+    <button id="bClear" title="Hapus semua coretan di slide ini">Hapus</button>
+  </div>
+  <div class="g">
+    <button id="bBoard" title="Papan kosong buat gambar bebas (B)">Papan</button>
+    <button id="bFinger" title="Kalau nggak pakai Apple Pencil: jari bisa nulis">Jari nulis</button>
+  </div>
+  <span class="sp"></span>
+  <span id="logo">SJA TEXTILE · FABRIC CLASS</span>
+  <button id="bFull" title="Layar penuh"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
+</div>
+
+<div id="grid"></div>
+<div id="toast">Apple Pencil = nulis · Jari = geser slide<br><small style="opacity:.75">Tombol “Papan” buat halaman kosong</small></div>
+
+<script>
+const N = 34, TB = 58;
+const pad = n => String(n).padStart(2, "0");
+const SRC = i => `slides/${pad(i + 1)}.webp`;
+const $ = s => document.querySelector(s);
+const stage = $("#stage"), img = $("#slide"), ink = $("#ink"), laser = $("#laser");
+const ctx = ink.getContext("2d"), lctx = laser.getContext("2d");
+const KEY = "fc-ink-v1";
+let store = {};
+try { store = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) { store = {}; }
+let cur = Math.min(N - 1, Math.max(0, +(localStorage.getItem("fc-cur") || 0)));
+let board = false, tool = "pen", color = "#1a4876", finger = false;
+let W = 0, H = 0, dpr = 1;
+
+// preload
+for (let i = 0; i < N; i++) { const im = new Image(); im.src = SRC(i); }
+
+function page() { return board ? "board" : "s" + cur; }
+function strokes() { return (store[page()] = store[page()] || []); }
+let saveT = 0;
+function save() { clearTimeout(saveT); saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} }, 300); }
+
+function layout() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const top = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--sat")) || 0;
+  let w = vw, h = vw * 9 / 16;
+  if (h > vh - TB - top) { h = vh - TB - top; w = h * 16 / 9; }
+  W = Math.round(w); H = Math.round(h);
+  Object.assign(stage.style, { width: W + "px", height: H + "px", left: Math.round((vw - W) / 2) + "px", top: top + "px" });
+  dpr = window.devicePixelRatio || 1;
+  for (const c of [ink, laser]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); lctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  redraw();
+}
+
+function width(s, p) { return s.tool === "hl" ? s.w * W : s.w * W * (0.35 + 0.9 * (p ?? 0.5)); }
+function drawStroke(c, s, from = 1) {
+  const P = s.pts;
+  c.save();
+  c.lineCap = "round"; c.lineJoin = "round"; c.strokeStyle = s.color;
+  if (s.tool === "hl") { c.globalAlpha = 0.38; c.lineWidth = width(s); c.beginPath(); c.moveTo(P[0][0] * W, P[0][1] * H);
+    for (let i = 1; i < P.length; i++) c.lineTo(P[i][0] * W, P[i][1] * H); if (P.length === 1) c.lineTo(P[0][0] * W + .1, P[0][1] * H); c.stroke(); c.restore(); return; }
+  if (P.length === 1) { c.fillStyle = s.color; c.beginPath(); c.arc(P[0][0] * W, P[0][1] * H, width(s, P[0][2]) / 2, 0, 7); c.fill(); c.restore(); return; }
+  for (let i = Math.max(1, from); i < P.length; i++) {
+    const a = P[i - 1], b = P[i];
+    c.lineWidth = width(s, (a[2] + b[2]) / 2);
+    c.beginPath(); c.moveTo(a[0] * W, a[1] * H); c.lineTo(b[0] * W, b[1] * H); c.stroke();
+  }
+  c.restore();
+}
+function redraw() { ctx.clearRect(0, 0, W, H); for (const s of strokes()) drawStroke(ctx, s); }
+
+function show(i) {
+  cur = (i + N) % N; board = false; document.body.classList.remove("isboard");
+  img.src = SRC(cur); $("#cnt").textContent = `${cur + 1} / ${N}`; $("#bBoard").classList.remove("on");
+  localStorage.setItem("fc-cur", cur); redraw();
+}
+
+// ---------- input
+let drawing = null, swipe = null, lastLaser = [];
+function rel(e) { const r = stage.getBoundingClientRect(); return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height]; }
+function pres(e) { return e.pointerType === "pen" ? (e.pressure || 0.5) : 0.5; }
+
+stage.addEventListener("pointerdown", e => {
+  e.preventDefault();
+  if (e.pointerType === "touch" && !finger) { swipe = { x: e.clientX, y: e.clientY, id: e.pointerId }; return; }
+  try { stage.setPointerCapture(e.pointerId); } catch (_) {}
+  const [x, y] = rel(e);
+  if (tool === "laser") { lastLaser.push({ x, y, t: performance.now() }); return void (drawing = { laser: true }); }
+  if (tool === "eraser") { drawing = { eraser: true }; erase(x, y); return; }
+  drawing = { tool, color, w: tool === "hl" ? 0.018 : 0.0042, pts: [[x, y, pres(e)]] };
+  drawStroke(ctx, drawing);
+});
+stage.addEventListener("pointermove", e => {
+  if (swipe || !drawing) return;
+  const co = e.getCoalescedEvents ? e.getCoalescedEvents() : [], evs = co.length ? co : [e];
+  for (const ev of evs) {
+    const [x, y] = rel(ev);
+    if (drawing.laser) { lastLaser.push({ x, y, t: performance.now() }); continue; }
+    if (drawing.eraser) { erase(x, y); continue; }
+    const P = drawing.pts, l = P[P.length - 1];
+    if (Math.hypot((x - l[0]) * W, (y - l[1]) * H) < 0.8) continue;
+    P.push([x, y, pres(ev)]);
+    if (drawing.tool === "hl") { redraw(); drawStroke(ctx, drawing); } else drawStroke(ctx, drawing, P.length - 1);
+  }
+});
+function end(e) {
+  if (swipe && e.pointerId === swipe.id) {
+    const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3 && !board) show(cur + (dx < 0 ? 1 : -1));
+    else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) toggleTb();
+    return;
+  }
+  if (!drawing) return;
+  if (drawing.pts) { strokes().push({ tool: drawing.tool, color: drawing.color, w: drawing.w, pts: drawing.pts.map(p => p.map(v => +v.toFixed(4))) }); save(); }
+  drawing = null;
+}
+stage.addEventListener("pointerup", end); stage.addEventListener("pointercancel", end);
+
+function erase(x, y) {
+  const S = strokes(), r = 0.018; let hit = false;
+  const k = 16 / 9, d2 = (a, b) => {           // jarak titik ke ruas garis (x dikali 16/9 biar skala sama)
+    const ax = a[0] * k, ay = a[1], bx = b[0] * k, by = b[1], px = x * k, py = y, dx = bx - ax, dy = by - ay;
+    const t = dx || dy ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy))) : 0;
+    return Math.hypot(px - ax - t * dx, py - ay - t * dy);
+  };
+  for (let i = S.length - 1; i >= 0; i--) {
+    const P = S[i].pts, rr = r + (S[i].tool === "hl" ? S[i].w : 0);
+    if (P.length === 1 ? d2(P[0], P[0]) < rr : P.some((p, j) => j && d2(P[j - 1], p) < rr)) { S.splice(i, 1); hit = true; }
+  }
+  if (hit) { redraw(); save(); }
+}
+
+// laser: jejak merah yang pudar sendiri
+(function loop() {
+  const now = performance.now(); lastLaser = lastLaser.filter(p => now - p.t < 650);
+  lctx.clearRect(0, 0, W, H);
+  if (lastLaser.length) {
+    lctx.lineCap = "round"; lctx.lineJoin = "round";
+    for (let i = 1; i < lastLaser.length; i++) {
+      const a = lastLaser[i - 1], b = lastLaser[i], k = 1 - (now - b.t) / 650;
+      lctx.strokeStyle = `rgba(255,59,48,${0.85 * k})`; lctx.lineWidth = 7 * k + 2;
+      lctx.beginPath(); lctx.moveTo(a.x * W, a.y * H); lctx.lineTo(b.x * W, b.y * H); lctx.stroke();
+    }
+    const p = lastLaser[lastLaser.length - 1];
+    lctx.fillStyle = "rgba(255,59,48,.95)"; lctx.shadowColor = "rgba(255,59,48,.9)"; lctx.shadowBlur = 14;
+    lctx.beginPath(); lctx.arc(p.x * W, p.y * H, 8, 0, 7); lctx.fill(); lctx.shadowBlur = 0;
+  }
+  requestAnimationFrame(loop);
+})();
+
+// ---------- toolbar
+document.querySelectorAll("#tools button").forEach(b => b.onclick = () => {
+  document.querySelectorAll("#tools button").forEach(x => x.classList.remove("on")); b.classList.add("on");
+  tool = b.dataset.tool; if (b.dataset.color) color = b.dataset.color;
+});
+$("#bPrev").onclick = () => show(cur - 1);
+$("#bNext").onclick = () => show(cur + 1);
+$("#bUndo").onclick = () => { strokes().pop(); redraw(); save(); };
+let clearT = 0;
+$("#bClear").onclick = () => {
+  const b = $("#bClear");
+  if (!b.classList.contains("warn")) { b.classList.add("warn"); b.textContent = "Yakin?"; clearT = setTimeout(() => { b.classList.remove("warn"); b.textContent = "Hapus"; }, 2200); return; }
+  clearTimeout(clearT); b.classList.remove("warn"); b.textContent = "Hapus"; store[page()] = []; redraw(); save();
+};
+$("#bBoard").onclick = () => { board = !board; document.body.classList.toggle("isboard", board); $("#bBoard").classList.toggle("on", board); redraw(); };
+$("#bFinger").onclick = () => { finger = !finger; $("#bFinger").classList.toggle("on", finger); };
+$("#bFull").onclick = () => {
+  const el = document.documentElement, f = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (document.fullscreenElement || document.webkitFullscreenElement) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else if (f) f.call(el);
+};
+let tbT = 0;
+function toggleTb() { document.body.classList.toggle("hidetb"); }
+
+// grid semua slide
+const grid = $("#grid");
+for (let i = 0; i < N; i++) { const d = document.createElement("div"); d.innerHTML = `<img src="${SRC(i)}" loading="lazy"><span>${i + 1}</span>`; d.onclick = () => { show(i); document.body.classList.remove("showgrid"); }; grid.appendChild(d); }
+$("#bGrid").onclick = () => { grid.querySelectorAll("div").forEach((d, i) => d.classList.toggle("cur", i === cur)); document.body.classList.toggle("showgrid"); };
+
+// keyboard (tes di laptop / keyboard iPad)
+addEventListener("keydown", e => {
+  const k = e.key.toLowerCase();
+  if (k === "arrowright" || k === " " || k === "pagedown") show(cur + 1);
+  else if (k === "arrowleft" || k === "pageup") show(cur - 1);
+  else if (k === "z") $("#bUndo").click();
+  else if (k === "b") $("#bBoard").click();
+  else if (k === "escape") document.body.classList.remove("showgrid");
+  else { const m = { p: 0, h: 3, e: 4, l: 5 }[k]; if (m !== undefined) document.querySelectorAll("#tools button")[m].click(); }
+});
+
+// safe area atas (status bar iPad waktu dibuka dari Home Screen)
+const probe = document.createElement("div"); probe.style.cssText = "position:fixed;top:0;height:env(safe-area-inset-top);visibility:hidden";
+document.body.appendChild(probe);
+function sat() { document.documentElement.style.setProperty("--sat", probe.offsetHeight + "px"); layout(); }
+addEventListener("resize", sat); addEventListener("orientationchange", () => setTimeout(sat, 300));
+sat(); show(cur);
+if (location.hash === "#selftest") setTimeout(() => {
+  const r = stage.getBoundingClientRect(), ev = (type, x, y, pt) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: pt === "touch" ? 2 : 1, pointerType: pt, pressure: .6, clientX: r.left + x * r.width, clientY: r.top + y * r.height }));
+  const out = [];
+  localStorage.clear(); store = {}; show(0);
+  ev("pointerdown", .2, .5, "pen"); for (let i = 1; i <= 20; i++) ev("pointermove", .2 + i * .02, .5 + Math.sin(i / 3) * .05, "pen"); ev("pointerup", .6, .5, "pen");
+  out.push("pen=" + strokes().length);
+  document.querySelectorAll("#tools button")[3].click(); ev("pointerdown", .2, .3, "pen"); ev("pointermove", .5, .3, "pen"); ev("pointerup", .5, .3, "pen");
+  out.push("hl=" + strokes().length);
+  document.querySelectorAll("#tools button")[4].click(); ev("pointerdown", .35, .3, "pen"); ev("pointerup", .35, .3, "pen");
+  out.push("erase=" + strokes().length);
+  ev("pointerdown", .8, .5, "touch"); ev("pointerup", .4, .5, "touch"); out.push("swipe->" + (cur + 1));
+  $("#bBoard").click(); document.querySelectorAll("#tools button")[0].click(); ev("pointerdown", .5, .5, "pen"); ev("pointermove", .6, .6, "pen"); ev("pointerup", .6, .6, "pen");
+  out.push("board=" + strokes().length); $("#bBoard").click(); out.push("slide2=" + strokes().length);
+  show(0); out.push("slide1=" + strokes().length);
+  document.body.setAttribute("data-test", out.join(" "));
+}, 800);
+const t = $("#toast"); setTimeout(() => t.classList.add("show"), 400); setTimeout(() => t.classList.remove("show"), 4200);
+</script>
+</body>
+</html>
