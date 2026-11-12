@@ -25,6 +25,11 @@ html,body{height:100%;background:var(--navy8);overflow:hidden;font-family:-apple
 #stage{position:absolute;left:0;top:0;background:#f5f4f1;touch-action:none;overflow:hidden}
 #stage img{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
 #stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#rv{position:absolute;inset:0;pointer-events:none}
+.rvi{position:absolute;background-repeat:no-repeat;opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1)}
+.rvi.on{opacity:1;transform:none}
+.rvi.now{transition:none}
+#st{font:600 11px -apple-system,"Inter",sans-serif;color:#9b8270;letter-spacing:.12em;min-width:0}
 #board{position:absolute;inset:0;background:#fff;display:none;
   background-image:radial-gradient(#d6dbe2 1.3px,transparent 1.4px);background-size:28px 28px}
 body.isboard #board{display:block}
@@ -60,6 +65,7 @@ body.showgrid #grid{display:grid}
 <body>
 <div id="stage">
   <img id="slide" alt="">
+  <div id="rv"></div>
   <div id="board"></div>
   <canvas id="ink"></canvas>
   <canvas id="laser"></canvas>
@@ -68,7 +74,7 @@ body.showgrid #grid{display:grid}
 <div id="tb">
   <div class="g">
     <button id="bPrev" title="Slide sebelumnya (←)"><svg viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></svg></button>
-    <span id="cnt">1 / 34</span>
+    <span id="cnt">1 / 34</span><span id="st"></span>
     <button id="bNext" title="Slide berikutnya (→)"><svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg></button>
     <button id="bGrid" title="Semua slide"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg></button>
   </div>
@@ -96,6 +102,7 @@ body.showgrid #grid{display:grid}
 <div id="grid"></div>
 <div id="toast">Apple Pencil = nulis · Jari = geser slide<br><small style="opacity:.75">Tombol “Papan” buat halaman kosong</small></div>
 
+<script src="steps.js"></script>
 <script>
 const N = 34, TB = 58;
 const pad = n => String(n).padStart(2, "0");
@@ -111,7 +118,11 @@ let board = false, tool = "pen", color = "#1a4876", finger = false;
 let W = 0, H = 0, dpr = 1;
 
 // preload
-for (let i = 0; i < N; i++) { const im = new Image(); im.src = SRC(i); }
+const STEPS = window.STEPS || {};
+const SRCB = i => `slides/${pad(i + 1)}b.webp`;
+const stepsOf = i => STEPS[i + 1] || null;
+let step = 0;
+for (let i = 0; i < N; i++) { const im = new Image(); im.src = SRC(i); if (stepsOf(i)) { const b = new Image(); b.src = SRCB(i); } }
 
 function page() { return board ? "board" : "s" + cur; }
 function strokes() { return (store[page()] = store[page()] || []); }
@@ -148,10 +159,40 @@ function drawStroke(c, s, from = 1) {
 }
 function redraw() { ctx.clearRect(0, 0, W, H); for (const s of strokes()) drawStroke(ctx, s); }
 
-function show(i) {
+// animasi muncul satu-satu (steps.js, dari briefing): bagian teks disembunyiin di gambar dasar, muncul per langkah
+const rv = $("#rv");
+function buildReveal() {
+  rv.innerHTML = "";
+  const S = stepsOf(cur); if (!S) return;
+  S.forEach((grp, k) => grp.forEach(([x, y, w, h]) => {
+    const d = document.createElement("div"); d.className = "rvi now"; d.dataset.k = k;
+    Object.assign(d.style, { left: x * 100 + "%", top: y * 100 + "%", width: w * 100 + "%", height: h * 100 + "%",
+      backgroundImage: `url(${SRC(cur)})`, backgroundSize: `${100 / w}% ${100 / h}%`,
+      backgroundPosition: `${x / (1 - w) * 100}% ${y / (1 - h) * 100}%` });
+    rv.appendChild(d);
+  }));
+}
+function applyStep(anim) {
+  rv.querySelectorAll(".rvi").forEach(d => { d.classList.toggle("now", !anim); d.classList.toggle("on", +d.dataset.k < step); });
+  const S = stepsOf(cur);
+  $("#st").textContent = S ? " " + "●".repeat(step) + "○".repeat(S.length - step) : "";
+}
+function show(i, st = 0) {
   cur = (i + N) % N; board = false; document.body.classList.remove("isboard");
-  img.src = SRC(cur); $("#cnt").textContent = `${cur + 1} / ${N}`; $("#bBoard").classList.remove("on");
+  const S = stepsOf(cur); step = S ? Math.min(st, S.length) : 0;
+  img.src = S ? SRCB(cur) : SRC(cur); buildReveal(); applyStep(false);
+  $("#cnt").textContent = `${cur + 1} / ${N}`; $("#bBoard").classList.remove("on");
   localStorage.setItem("fc-cur", cur); redraw();
+}
+function next() {
+  if (board) return;
+  const S = stepsOf(cur);
+  if (S && step < S.length) { step++; applyStep(true); } else show(cur + 1, 0);
+}
+function prev() {
+  if (board) return;
+  if (step > 0) { step--; applyStep(true); return; }
+  const p = (cur - 1 + N) % N, S = stepsOf(p); show(p, S ? S.length : 0);
 }
 
 // ---------- input
@@ -185,7 +226,7 @@ stage.addEventListener("pointermove", e => {
 function end(e) {
   if (swipe && e.pointerId === swipe.id) {
     const dx = e.clientX - swipe.x, dy = e.clientY - swipe.y; swipe = null;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3 && !board) show(cur + (dx < 0 ? 1 : -1));
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.3 && !board) (dx < 0 ? next() : prev());
     else if (Math.abs(dx) < 10 && Math.abs(dy) < 10) toggleTb();
     return;
   }
@@ -232,8 +273,8 @@ document.querySelectorAll("#tools button").forEach(b => b.onclick = () => {
   document.querySelectorAll("#tools button").forEach(x => x.classList.remove("on")); b.classList.add("on");
   tool = b.dataset.tool; if (b.dataset.color) color = b.dataset.color;
 });
-$("#bPrev").onclick = () => show(cur - 1);
-$("#bNext").onclick = () => show(cur + 1);
+$("#bPrev").onclick = () => prev();
+$("#bNext").onclick = () => next();
 $("#bUndo").onclick = () => { strokes().pop(); redraw(); save(); };
 let clearT = 0;
 $("#bClear").onclick = () => {
@@ -259,8 +300,8 @@ $("#bGrid").onclick = () => { grid.querySelectorAll("div").forEach((d, i) => d.c
 // keyboard (tes di laptop / keyboard iPad)
 addEventListener("keydown", e => {
   const k = e.key.toLowerCase();
-  if (k === "arrowright" || k === " " || k === "pagedown") show(cur + 1);
-  else if (k === "arrowleft" || k === "pageup") show(cur - 1);
+  if (k === "arrowright" || k === " " || k === "pagedown") next();
+  else if (k === "arrowleft" || k === "pageup") prev();
   else if (k === "z") $("#bUndo").click();
   else if (k === "b") $("#bBoard").click();
   else if (k === "escape") document.body.classList.remove("showgrid");
@@ -272,7 +313,7 @@ const probe = document.createElement("div"); probe.style.cssText = "position:fix
 document.body.appendChild(probe);
 function sat() { document.documentElement.style.setProperty("--sat", probe.offsetHeight + "px"); layout(); }
 addEventListener("resize", sat); addEventListener("orientationchange", () => setTimeout(sat, 300));
-sat(); show(cur);
+sat(); { const m = location.hash.match(/^#s(\d+)k(\d+)$/); m ? show(+m[1] - 1, +m[2]) : show(cur); }
 if (location.hash === "#selftest") setTimeout(() => {
   const r = stage.getBoundingClientRect(), ev = (type, x, y, pt) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: pt === "touch" ? 2 : 1, pointerType: pt, pressure: .6, clientX: r.left + x * r.width, clientY: r.top + y * r.height }));
   const out = [];
@@ -287,6 +328,10 @@ if (location.hash === "#selftest") setTimeout(() => {
   $("#bBoard").click(); document.querySelectorAll("#tools button")[0].click(); ev("pointerdown", .5, .5, "pen"); ev("pointermove", .6, .6, "pen"); ev("pointerup", .6, .6, "pen");
   out.push("board=" + strokes().length); $("#bBoard").click(); out.push("slide2=" + strokes().length);
   show(0); out.push("slide1=" + strokes().length);
+  show(2); for (let i = 0; i < 5; i++) next(); out.push("s3step=" + (cur + 1) + ":" + step + ":" + rv.querySelectorAll(".rvi.on").length);
+  next(); out.push("lanjut=" + (cur + 1) + ":" + step + ":" + document.querySelectorAll("#rv .rvi").length);
+  prev(); out.push("mundur=" + (cur + 1) + ":" + step + ":" + rv.querySelectorAll(".rvi.on").length + ":" + img.src.split("/").pop());
+  show(4); out.push("s5=" + img.src.split("/").pop() + ":" + rv.children.length);
   document.body.setAttribute("data-test", out.join(" "));
 }, 800);
 const t = $("#toast"); setTimeout(() => t.classList.add("show"), 400); setTimeout(() => t.classList.remove("show"), 4200);
