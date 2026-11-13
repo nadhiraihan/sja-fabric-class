@@ -104,7 +104,7 @@ body.showgrid #grid{display:grid}
 
 <script>/* steps.js selalu diambil terbaru (GitHub Pages cache 10 menit) */ document.write('<script src="steps.js?t=' + Date.now() + '"><\/script>');</script>
 <script>
-const N = 34, TB = 58;
+const N = 35, TB = 58;
 const pad = n => String(n).padStart(2, "0");
 const SRC = i => `slides/${pad(i + 1)}.webp`;
 const $ = s => document.querySelector(s);
@@ -328,7 +328,7 @@ if (location.hash === "#selftest") setTimeout(() => {
   $("#bBoard").click(); document.querySelectorAll("#tools button")[0].click(); ev("pointerdown", .5, .5, "pen"); ev("pointermove", .6, .6, "pen"); ev("pointerup", .6, .6, "pen");
   out.push("board=" + strokes().length); $("#bBoard").click(); out.push("slide2=" + strokes().length);
   show(0); out.push("slide1=" + strokes().length);
-  show(2); for (let i = 0; i < 5; i++) next(); out.push("s3step=" + (cur + 1) + ":" + step + ":" + rv.querySelectorAll(".rvi.on").length);
+  show(4); for (let i = 0; i < 5; i++) next(); out.push("s5step=" + (cur + 1) + ":" + step + ":" + rv.querySelectorAll(".rvi.on").length);
   next(); out.push("lanjut=" + (cur + 1) + ":" + step + ":" + document.querySelectorAll("#rv .rvi").length);
   prev(); out.push("mundur=" + (cur + 1) + ":" + step + ":" + rv.querySelectorAll(".rvi.on").length + ":" + img.src.split("/").pop());
   show(4); out.push("s5=" + img.src.split("/").pop() + ":" + rv.children.length);
