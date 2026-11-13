@@ -27,9 +27,10 @@ STEPS = {
     # hal 5 (dulu slide 3) · koordinat diambil ulang dari teks PDF 13 Nov, barisnya geser
     5: [[(0.056, 0.404, 0.310, 0.435)], [(0.263, 0.525, 0.353, 0.555)], [(0.330, 0.609, 0.462, 0.640)],
         [(0.439, 0.701, 0.533, 0.732)], [(0.478, 0.830, 0.924, 0.898)]],
-    # hal 6 (dulu slide 4): dari BAWAH ke atas (Nadhir 12 Nov), Pembahasan paling akhir
-    6: [[(0.290, 0.846, 0.489, 0.940)], [(0.290, 0.638, 0.443, 0.732)], [(0.290, 0.432, 0.495, 0.524)],
-        [(0.290, 0.226, 0.485, 0.318)], [(0.625, 0.528, 0.958, 0.910)]],
+    # hal 6 (dulu slide 4): dari ATAS ke bawah, Benang > Tenunan > Kain > Baju, Pembahasan paling akhir
+    # (Nadhir 13 Nov balikin lagi ke atas-ke-bawah; 12 Nov sempat dibalik jadi bawah-ke-atas)
+    6: [[(0.290, 0.226, 0.485, 0.318)], [(0.290, 0.432, 0.495, 0.524)], [(0.290, 0.638, 0.443, 0.732)],
+        [(0.290, 0.846, 0.489, 0.940)], [(0.625, 0.528, 0.958, 0.910)]],
     # hal 17 (dulu slide 15)
     17: [[(0.576, 0.172, 0.950, 0.966)]],
     # hal 32 (dulu slide 30) · koordinat diambil ulang dari teks PDF 13 Nov
