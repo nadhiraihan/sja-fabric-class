@@ -18,22 +18,16 @@
   Slide nempel di atas, toolbar di pita bawah DI LUAR slide, jadi di OBS tinggal crop ke area slide 16:9.
 -->
 <style>
-:root{--navy:#1a4876;--navy8:#0b1d32;--mocha:#3a2d25;--m3:#9b8270;--cream:#f5f1ee;--tb:58px;
-  /* tempo animasi, disamain sama deck Canva: 1,00 detik, linear (diukur dari MP4-nya) */
-  --dis:1s}
+:root{--navy:#1a4876;--navy8:#0b1d32;--mocha:#3a2d25;--m3:#9b8270;--cream:#f5f1ee;--tb:58px}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{height:100%;background:var(--navy8);overflow:hidden;font-family:-apple-system,"Inter","Helvetica Neue",sans-serif;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #stage{position:absolute;left:0;top:0;background:#f5f4f1;touch-action:none;overflow:hidden}
 #stage img{position:absolute;inset:0;width:100%;height:100%;display:block;pointer-events:none}
-#slidelama{z-index:0}
-#slide{z-index:1}
-#slide.mulai{opacity:0}          /* detik nol dissolve: gambar baru belum kelihatan */
-#slide.jalan{transition:opacity var(--dis) linear}
 #stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #rv{position:absolute;inset:0;pointer-events:none}
-.rvi{position:absolute;background-repeat:no-repeat;opacity:0;transition:opacity var(--dis) linear}
-.rvi.on{opacity:1}
+.rvi{position:absolute;background-repeat:no-repeat;opacity:0;transform:translateY(16px);transition:opacity .5s ease,transform .5s cubic-bezier(.2,.7,.2,1)}
+.rvi.on{opacity:1;transform:none}
 .rvi.now{transition:none}
 #st{font:600 11px -apple-system,"Inter",sans-serif;color:#9b8270;letter-spacing:.12em;min-width:0}
 #board{position:absolute;inset:0;background:#fff;display:none;
@@ -70,7 +64,6 @@ body.showgrid #grid{display:grid}
 </head>
 <body>
 <div id="stage">
-  <img id="slidelama" alt="" aria-hidden="true">
   <img id="slide" alt="">
   <div id="rv"></div>
   <div id="board"></div>
@@ -166,26 +159,6 @@ function drawStroke(c, s, from = 1) {
 }
 function redraw() { ctx.clearRect(0, 0, W, H); for (const s of strokes()) drawStroke(ctx, s); }
 
-// ganti slide pakai dissolve (nyilang halus) persis kaya deck Canva: 1 detik, linear.
-// gambar lama ditaro di lapisan bawah, gambar baru nyala pelan-pelan di atasnya.
-const imgLama = $("#slidelama");
-let dsT = 0;
-function pasangSlide(src, anim) {
-  const lama = img.getAttribute("src");
-  if (lama === src) return;
-  clearTimeout(dsT);
-  if (!anim || !lama) {                       // pertama buka / lompat: langsung aja
-    img.classList.remove("jalan", "mulai"); imgLama.style.opacity = 0; img.src = src; return;
-  }
-  imgLama.src = lama; imgLama.style.opacity = 1;
-  img.classList.remove("jalan"); img.classList.add("mulai");   // sembunyiin tanpa transisi
-  img.src = src;
-  void img.offsetWidth;                       // paksa browser nerapin dulu
-  img.classList.add("jalan"); img.classList.remove("mulai");   // baru dinyalain pelan
-  const ms = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--dis")) * 1000 || 1000;
-  dsT = setTimeout(() => { img.classList.remove("jalan"); imgLama.style.opacity = 0; }, ms + 80);
-}
-
 // animasi muncul satu-satu (steps.js, dari briefing): bagian teks disembunyiin di gambar dasar, muncul per langkah
 const rv = $("#rv");
 function buildReveal() {
@@ -204,10 +177,10 @@ function applyStep(anim) {
   const S = stepsOf(cur);
   $("#st").textContent = S ? " " + "●".repeat(step) + "○".repeat(S.length - step) : "";
 }
-function show(i, st = 0, anim = true) {
+function show(i, st = 0) {
   cur = (i + N) % N; board = false; document.body.classList.remove("isboard");
   const S = stepsOf(cur); step = S ? Math.min(st, S.length) : 0;
-  pasangSlide(S ? SRCB(cur) : SRC(cur), anim); buildReveal(); applyStep(false);
+  img.src = S ? SRCB(cur) : SRC(cur); buildReveal(); applyStep(false);
   $("#cnt").textContent = `${cur + 1} / ${N}`; $("#bBoard").classList.remove("on");
   localStorage.setItem("fc-cur", cur); redraw();
 }
@@ -340,7 +313,7 @@ const probe = document.createElement("div"); probe.style.cssText = "position:fix
 document.body.appendChild(probe);
 function sat() { document.documentElement.style.setProperty("--sat", probe.offsetHeight + "px"); layout(); }
 addEventListener("resize", sat); addEventListener("orientationchange", () => setTimeout(sat, 300));
-sat(); { const m = location.hash.match(/^#s(\d+)k(\d+)$/); m ? show(+m[1] - 1, +m[2], false) : show(cur, 0, false); }
+sat(); { const m = location.hash.match(/^#s(\d+)k(\d+)$/); m ? show(+m[1] - 1, +m[2]) : show(cur); }
 if (location.hash === "#selftest") setTimeout(() => {
   const r = stage.getBoundingClientRect(), ev = (type, x, y, pt) => stage.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: pt === "touch" ? 2 : 1, pointerType: pt, pressure: .6, clientX: r.left + x * r.width, clientY: r.top + y * r.height }));
   const out = [];
